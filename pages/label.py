@@ -71,7 +71,14 @@ def initialize_session_state():
                 'width': 400, 
                 'height': 200
             },
-            'variable_order': []
+            'variable_order': [],
+            'logo_settings': {
+                'enabled': False,
+                'image_data': None,
+                'position': 'top-right',
+                'size': 50,
+                'margin': 10
+            }
         }
 
     if 'generated_labels' not in st.session_state:
@@ -289,6 +296,10 @@ def configure_labels_page():
             # Barcode configuration
             st.subheader("Barcode Configuration")
             render_barcode_config(selected_vars)
+            
+            # Logo configuration
+            st.subheader("Logo Configuration")
+            render_logo_config()
         
         else:
             st.info("👆 Select at least one variable to configure your labels")
@@ -335,6 +346,13 @@ def configure_labels_page():
                 st.write(f"**📊 Barcode:** {barcode_var}")
             else:
                 st.write("**📊 Barcode:** Not configured")
+            
+            # Show logo info
+            logo_settings = st.session_state.label_config.get('logo_settings', {})
+            if logo_settings.get('enabled', False) and logo_settings.get('image_data'):
+                st.write(f"**🏢 Logo:** {logo_settings.get('position', 'top-right')} ({logo_settings.get('size', 50)}px)")
+            else:
+                st.write("**🏢 Logo:** Not configured")
             
             st.success("✅ Configuration saved!")
             st.info("👈 Click 'Preview & Design' to see your label")
@@ -449,7 +467,6 @@ def render_barcode_config(selected_vars):
         
         # Barcode settings
         st.write("**Barcode Settings:**")
-        col1, col2 = st.columns(2)
         
         # Get current settings
         current_settings = st.session_state.label_config.get('barcode_settings', {
@@ -458,50 +475,277 @@ def render_barcode_config(selected_vars):
             'font_size': 10
         })
         
-        with col1:
-            height = st.slider(
-                "Barcode Height",
-                min_value=30,
-                max_value=80,
-                value=current_settings.get('height', 40),
-                key="barcode_height_slider"
-            )
+        # Barcode height with expanded range and better visibility
+        st.write("**Barcode Height Control:**")
+        height = st.slider(
+            "Barcode Height (pixels)",
+            min_value=20,
+            max_value=120,  # Increased from 80 to 120
+            value=current_settings.get('height', 40),
+            step=5,
+            key="barcode_height_slider",
+            help="Adjust the height of the barcode. Taller barcodes are easier to scan but take more space."
+        )
         
-        with col2:
+        # Visual height indicator
+        if height <= 30:
+            st.info("📏 **Small barcode** - Compact but may be harder to scan")
+        elif height <= 60:
+            st.success("📏 **Standard barcode** - Good balance of size and scannability")
+        else:
+            st.warning("📏 **Large barcode** - Easy to scan but takes more label space")
+        
+        # Text and font settings
+        col1, col2 = st.columns(2)
+        
+        with col1:
             show_text = st.checkbox(
                 "Show text below barcode",
                 value=current_settings.get('show_text', False),
                 key="barcode_show_text_check"
             )
         
+        with col2:
+            if show_text:
+                font_size = st.selectbox(
+                    "Text size below barcode",
+                    options=[8, 10, 12, 14, 16],
+                    index=[8, 10, 12, 14, 16].index(current_settings.get('font_size', 10)),
+                    key="barcode_font_size_select"
+                )
+            else:
+                font_size = current_settings.get('font_size', 10)
+        
         # Save barcode settings immediately
         st.session_state.label_config['barcode_settings'] = {
             'height': height,
             'show_text': show_text,
-            'font_size': current_settings.get('font_size', 10)
+            'font_size': font_size
         }
+        
+        # Real-time preview of settings
+        st.write("**Current Barcode Configuration:**")
+        st.write(f"• **Type:** Code 128 (high-density, industry standard)")
+        st.write(f"• **Height:** {height} pixels {'(Small)' if height <= 30 else '(Standard)' if height <= 60 else '(Large)'}")
+        st.write(f"• **Text below:** {'Yes' if show_text else 'No'}")
+        if show_text:
+            st.write(f"• **Text size:** {font_size}px")
+        
+        # Code 128 information
+        with st.expander("ℹ️ About Code 128 Barcodes"):
+            st.write("""
+            **Code 128** is the barcode type used in this application:
+            
+            **✅ Advantages:**
+            - **High density** - can encode lots of data in small space
+            - **Industry standard** - widely supported by all scanners
+            - **Alphanumeric support** - letters, numbers, and symbols
+            - **Error detection** - built-in checksum for accuracy
+            - **Compact** - efficient use of space
+            
+            **📊 Supports:**
+            - Numbers: 0-9
+            - Letters: A-Z, a-z  
+            - Symbols: !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
+            - Control characters
+            
+            **🏭 Perfect for:**
+            - Product SKUs, serial numbers
+            - Inventory tracking
+            - Warehouse management
+            - Retail point-of-sale
+            """)
         
         # Show current state for verification
         if show_text:
-            st.info(f"💡 '{selected_barcode}' will appear as barcode with text below")
+            st.info(f"💡 '{selected_barcode}' will appear as {height}px **Code 128** barcode with {font_size}px text below")
         else:
-            st.info(f"💡 '{selected_barcode}' will appear as barcode only (no text)")
+            st.info(f"💡 '{selected_barcode}' will appear as {height}px **Code 128** barcode only (no text)")
     
     # Debug verification
     with st.expander("🔧 Debug - Barcode Settings"):
         current_settings = st.session_state.label_config.get('barcode_settings', {})
         st.write(f"**Barcode Variable:** {st.session_state.label_config.get('barcode_variable', 'NOT SET')}")
+        st.write(f"**Height Setting:** {current_settings.get('height', 'NOT SET')} pixels")
         st.write(f"**Show Text Setting:** {current_settings.get('show_text', 'NOT SET')}")
-        st.write(f"**Height Setting:** {current_settings.get('height', 'NOT SET')}")
+        st.write(f"**Font Size Setting:** {current_settings.get('font_size', 'NOT SET')}px")
         
         if selected_barcode != 'None':
-            if current_settings.get('show_text') == show_text:
-                st.success("✅ Settings match correctly")
+            if current_settings.get('show_text') == show_text and current_settings.get('height') == height:
+                st.success("✅ All settings match correctly")
             else:
                 st.error("❌ Settings mismatch detected!")
                 if st.button("🔄 Force Sync Settings"):
-                    st.session_state.label_config['barcode_settings']['show_text'] = show_text
+                    st.session_state.label_config['barcode_settings'] = {
+                        'height': height,
+                        'show_text': show_text,
+                        'font_size': font_size
+                    }
                     st.rerun()
+
+def render_logo_config():
+    """Render logo configuration section"""
+    st.write("Add a company logo to your labels:")
+    
+    # Get current logo settings
+    current_logo_settings = st.session_state.label_config.get('logo_settings', {
+        'enabled': False,
+        'image_data': None,
+        'position': 'top-right',
+        'size': 50,
+        'margin': 10
+    })
+    
+    # Logo enable/disable
+    logo_enabled = st.checkbox(
+        "Enable logo on labels",
+        value=current_logo_settings.get('enabled', False),
+        key="logo_enabled_check"
+    )
+    
+    if logo_enabled:
+        # Logo upload
+        st.write("**Upload Logo Image:**")
+        uploaded_logo = st.file_uploader(
+            "Choose logo file",
+            type=['png', 'jpg', 'jpeg', 'gif', 'bmp'],
+            key="logo_uploader",
+            help="Upload PNG, JPG, or other image formats. PNG with transparency recommended."
+        )
+        
+        if uploaded_logo is not None:
+            try:
+                # Read and process the image
+                logo_image = Image.open(uploaded_logo)
+                
+                # Convert to RGBA to handle transparency
+                if logo_image.mode != 'RGBA':
+                    logo_image = logo_image.convert('RGBA')
+                
+                # Save image data to session state
+                logo_buffer = io.BytesIO()
+                logo_image.save(logo_buffer, format='PNG')
+                logo_buffer.seek(0)
+                
+                st.session_state.label_config['logo_settings']['image_data'] = logo_buffer.getvalue()
+                st.session_state.label_config['logo_settings']['enabled'] = True
+                
+                st.success(f"✅ Logo uploaded: {uploaded_logo.name}")
+                
+                # Show logo preview
+                col_preview, col_info = st.columns([1, 1])
+                with col_preview:
+                    st.write("**Logo Preview:**")
+                    st.image(logo_image, width=100)
+                
+                with col_info:
+                    st.write("**Logo Info:**")
+                    st.write(f"• Size: {logo_image.width} × {logo_image.height} px")
+                    st.write(f"• Format: {logo_image.format}")
+                    st.write(f"• Mode: {logo_image.mode}")
+                    
+            except Exception as e:
+                st.error(f"Error processing logo: {str(e)}")
+                st.error("Please upload a valid image file.")
+        
+        elif current_logo_settings.get('image_data') is not None:
+            st.info("✅ Logo already uploaded and ready to use")
+            
+            # Show current logo
+            try:
+                logo_data = current_logo_settings['image_data']
+                logo_buffer = io.BytesIO(logo_data)
+                current_logo = Image.open(logo_buffer)
+                
+                col_current, col_replace = st.columns([1, 1])
+                with col_current:
+                    st.write("**Current Logo:**")
+                    st.image(current_logo, width=100)
+                
+                with col_replace:
+                    if st.button("🔄 Replace Logo"):
+                        st.session_state.label_config['logo_settings']['image_data'] = None
+                        st.rerun()
+                        
+            except Exception as e:
+                st.error("Error loading current logo")
+        
+        # Logo settings (only show if logo is available)
+        if current_logo_settings.get('image_data') is not None or uploaded_logo is not None:
+            st.write("**Logo Settings:**")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                logo_position = st.selectbox(
+                    "Logo Position",
+                    options=['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'],
+                    index=['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'].index(
+                        current_logo_settings.get('position', 'top-right')
+                    ),
+                    key="logo_position_select"
+                )
+            
+            with col2:
+                logo_size = st.slider(
+                    "Logo Size (pixels)",
+                    min_value=20,
+                    max_value=150,
+                    value=current_logo_settings.get('size', 50),
+                    step=5,
+                    key="logo_size_slider"
+                )
+            
+            with col3:
+                logo_margin = st.slider(
+                    "Margin from Edge",
+                    min_value=5,
+                    max_value=30,
+                    value=current_logo_settings.get('margin', 10),
+                    step=1,
+                    key="logo_margin_slider"
+                )
+            
+            # Save logo settings
+            st.session_state.label_config['logo_settings'] = {
+                'enabled': True,
+                'image_data': current_logo_settings.get('image_data') or (
+                    logo_buffer.getvalue() if uploaded_logo is not None else None
+                ),
+                'position': logo_position,
+                'size': logo_size,
+                'margin': logo_margin
+            }
+            
+            # Position guide
+            position_descriptions = {
+                'top-left': '📍 Top-left corner of label',
+                'top-center': '📍 Top-center of label (horizontally centered)',
+                'top-right': '📍 Top-right corner of label', 
+                'bottom-left': '📍 Bottom-left corner of label',
+                'bottom-center': '📍 Bottom-center of label (horizontally centered)',
+                'bottom-right': '📍 Bottom-right corner of label'
+            }
+            
+            st.info(f"💡 Logo will appear at: {position_descriptions[logo_position]}")
+            st.write(f"**Preview Settings:** {logo_size}px size, {logo_margin}px margin")
+        
+        else:
+            st.info("📤 Upload a logo image above to configure position and size")
+    
+    else:
+        # Logo disabled
+        st.session_state.label_config['logo_settings']['enabled'] = False
+        st.info("💡 Logo is disabled. Check the box above to add a logo to your labels.")
+    
+    # Debug logo state
+    with st.expander("🔧 Debug - Logo Settings"):
+        logo_settings = st.session_state.label_config.get('logo_settings', {})
+        st.write(f"**Enabled:** {logo_settings.get('enabled', False)}")
+        st.write(f"**Has Image Data:** {logo_settings.get('image_data') is not None}")
+        st.write(f"**Position:** {logo_settings.get('position', 'Not set')}")
+        st.write(f"**Size:** {logo_settings.get('size', 'Not set')}px")
+        st.write(f"**Margin:** {logo_settings.get('margin', 'Not set')}px")
 
 def preview_design_page():
     """Preview label design with real data"""
@@ -570,6 +814,15 @@ def preview_design_page():
             else:
                 st.write(f"  {i+1}. {var} ({font_size}px, {style})")
         
+        # Show logo info
+        logo_settings = config.get('logo_settings', {})
+        if logo_settings.get('enabled', False) and logo_settings.get('image_data'):
+            st.write(f"**🏢 Logo:** {logo_settings.get('position', 'top-right')} position")
+            st.write(f"  • Size: {logo_settings.get('size', 50)}px")
+            st.write(f"  • Margin: {logo_settings.get('margin', 10)}px")
+        else:
+            st.write("**🏢 Logo:** Not configured")
+        
         # Global adjustments
         st.subheader("Quick Adjustments")
         
@@ -608,7 +861,7 @@ def create_preview_label():
     return create_label_from_data(first_row)
 
 def add_barcode_to_image(img, draw, barcode_data, width, height, config):
-    """Add barcode to the label image (used for preview)"""
+    """Add Code 128 barcode to the label image (used for preview)"""
     barcode_settings = config.get('barcode_settings', {})
     barcode_height = barcode_settings.get('height', 40)
     barcode_str = str(barcode_data)
@@ -619,7 +872,7 @@ def add_barcode_to_image(img, draw, barcode_data, width, height, config):
     
     if BARCODE_AVAILABLE:
         try:
-            # Generate real barcode with higher DPI
+            # Generate Code 128 barcode with higher DPI
             code128 = barcode.get('code128', barcode_str, writer=ImageWriter())
             
             # Create barcode image with high quality
@@ -646,10 +899,10 @@ def add_barcode_to_image(img, draw, barcode_data, width, height, config):
             img.paste(barcode_img, (10, barcode_y))
             
         except Exception:
-            # Fallback to visual barcode
+            # Fallback to visual Code 128-style barcode
             draw_visual_barcode(draw, 10, barcode_y, barcode_width, barcode_height, barcode_str)
     else:
-        # Draw visual barcode
+        # Draw visual Code 128-style barcode
         draw_visual_barcode(draw, 10, barcode_y, barcode_width, barcode_height, barcode_str)
     
     # Add text below if explicitly enabled
@@ -814,9 +1067,13 @@ def create_label_from_data(row_data):
     y_offset = 20 * scale_factor  # More top margin
     barcode_variable = config.get('barcode_variable', '')
     
-    # Calculate available height for text (reserve space for barcode)
+    # Calculate available height for text (reserve more space for barcode + text + margin)
     barcode_height = config['barcode_settings']['height'] * scale_factor
-    available_height = high_height - barcode_height - (60 * scale_factor)  # More space reserved
+    barcode_text_space = 20 * scale_factor if config['barcode_settings'].get('show_text', False) else 0
+    bottom_margin = 20 * scale_factor  # Extra space after barcode text
+    
+    reserved_bottom_space = barcode_height + barcode_text_space + bottom_margin + (20 * scale_factor)
+    available_height = high_height - reserved_bottom_space
     
     # Group variables into lines based on new_line setting
     text_lines = []
@@ -955,24 +1212,37 @@ def create_label_from_data(row_data):
     if barcode_variable and barcode_variable in row_data and pd.notna(row_data[barcode_variable]):
         add_high_quality_barcode(img, draw, row_data[barcode_variable], high_width, high_height, config, scale_factor)
     
+    # Add logo if configured
+    if config.get('logo_settings', {}).get('enabled', False):
+        add_logo_to_image(img, high_width, high_height, config, scale_factor)
+    
     # Scale down to final size with highest quality resampling
     final_img = img.resize((width, height), Image.Resampling.LANCZOS)
     
     return final_img
 
 def add_high_quality_barcode(img, draw, barcode_data, width, height, config, scale_factor):
-    """Add high-quality centered barcode to scaled image"""
+    """Add high-quality centered Code 128 barcode to scaled image"""
     barcode_settings = config.get('barcode_settings', {})
     barcode_height = barcode_settings.get('height', 40) * scale_factor
     barcode_str = str(barcode_data)
+    show_text = barcode_settings.get('show_text', False)
     
-    # Position at bottom with proper spacing
-    barcode_y = height - barcode_height - (20 * scale_factor)
-    barcode_width = width - (40 * scale_factor)  # More side margins
+    # Calculate positioning with proper spacing
+    bottom_margin = 20 * scale_factor  # Space after barcode text
+    text_height = 0
+    
+    if show_text:
+        font_size = barcode_settings.get('font_size', 10) * scale_factor
+        text_height = font_size + (8 * scale_factor)  # Text height + spacing
+    
+    # Position barcode considering text and bottom margin
+    barcode_y = height - barcode_height - text_height - bottom_margin - (10 * scale_factor)
+    barcode_width = width - (40 * scale_factor)  # Side margins
     
     if BARCODE_AVAILABLE:
         try:
-            # Generate ultra-high-quality barcode
+            # Generate ultra-high-quality Code 128 barcode
             code128 = barcode.get('code128', barcode_str, writer=ImageWriter())
             
             # Create barcode with maximum quality settings
@@ -1003,22 +1273,22 @@ def add_high_quality_barcode(img, draw, barcode_data, width, height, config, sca
             img.paste(barcode_img, (barcode_x, barcode_y))
             
         except Exception:
-            # Fallback to visual barcode (centered)
+            # Fallback to visual Code 128-style barcode (centered)
             barcode_x = (width - barcode_width) // 2
             draw_visual_barcode_scaled(draw, barcode_x, barcode_y, barcode_width, barcode_height, barcode_str)
     else:
-        # Draw visual barcode (centered)
+        # Draw visual Code 128-style barcode (centered)
         barcode_x = (width - barcode_width) // 2
         draw_visual_barcode_scaled(draw, barcode_x, barcode_y, barcode_width, barcode_height, barcode_str)
     
-    # Add text below if explicitly enabled
-    if barcode_settings.get('show_text', False):
+    # Add text below if explicitly enabled with proper spacing
+    if show_text:
         font = load_high_quality_font(barcode_settings.get('font_size', 10) * scale_factor)
         if font:
-            # Center the text below barcode
+            # Center the text below barcode with proper spacing
             text_width = draw.textlength(barcode_str, font=font)
             text_x = (width - text_width) // 2
-            text_y = barcode_y + barcode_height + (5 * scale_factor)
+            text_y = barcode_y + barcode_height + (8 * scale_factor)  # 8px gap between barcode and text
             
             draw.text((text_x, text_y), barcode_str, fill='black', font=font)
 
@@ -1049,6 +1319,75 @@ def draw_visual_barcode_scaled(draw, x, y, width, height, data):
         # Draw bars with pattern
         if (char_code + i) % 3 != 0:
             draw.rectangle([x_pos, y + 6, x_pos + bar_width - 1, y + 6 + bar_height], fill='black')
+
+def add_logo_to_image(img, width, height, config, scale_factor):
+    """Add logo to label image at specified position"""
+    logo_settings = config.get('logo_settings', {})
+    
+    if not logo_settings.get('enabled', False) or not logo_settings.get('image_data'):
+        return
+    
+    try:
+        # Load logo from stored data
+        logo_data = logo_settings['image_data']
+        logo_buffer = io.BytesIO(logo_data)
+        logo_img = Image.open(logo_buffer)
+        
+        # Ensure logo has transparency support
+        if logo_img.mode != 'RGBA':
+            logo_img = logo_img.convert('RGBA')
+        
+        # Calculate logo size and position
+        logo_size = logo_settings.get('size', 50) * scale_factor
+        margin = logo_settings.get('margin', 10) * scale_factor
+        position = logo_settings.get('position', 'top-right')
+        
+        # Resize logo maintaining aspect ratio
+        logo_aspect = logo_img.width / logo_img.height
+        if logo_aspect > 1:  # Wide logo
+            logo_width = int(logo_size)
+            logo_height = int(logo_size / logo_aspect)
+        else:  # Tall logo
+            logo_height = int(logo_size)
+            logo_width = int(logo_size * logo_aspect)
+        
+        logo_resized = logo_img.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
+        
+        # Calculate position coordinates
+        if position == 'top-left':
+            x = margin
+            y = margin
+        elif position == 'top-center':
+            x = (width - logo_width) // 2  # Center horizontally
+            y = margin
+        elif position == 'top-right':
+            x = width - logo_width - margin
+            y = margin
+        elif position == 'bottom-left':
+            x = margin
+            y = height - logo_height - margin
+        elif position == 'bottom-center':
+            x = (width - logo_width) // 2  # Center horizontally
+            y = height - logo_height - margin
+        elif position == 'bottom-right':
+            x = width - logo_width - margin
+            y = height - logo_height - margin
+        else:
+            # Default to top-right
+            x = width - logo_width - margin
+            y = margin
+        
+        # Paste logo with transparency support
+        if logo_resized.mode == 'RGBA':
+            # Use logo as its own mask for transparency
+            img.paste(logo_resized, (int(x), int(y)), logo_resized)
+        else:
+            # No transparency
+            img.paste(logo_resized, (int(x), int(y)))
+            
+    except Exception as e:
+        # Silently fail if logo can't be added
+        pass
 
 def load_high_quality_font(size):
     """Load high-quality font with multiple fallbacks"""
