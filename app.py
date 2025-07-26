@@ -267,6 +267,12 @@ with st.sidebar:
     """)
     
     st.markdown("---")
+    # Add navigation section
+    st.header("🔗 Navigation")
+    st.page_link("pages/label.py", label="📊 Label Analysis", icon="📊")
+    # Add more page links as needed
+    
+    st.markdown("---")
     st.markdown("**💡 Tips:**")
     st.markdown("- Ensure your COGS values are numeric")
     st.markdown("- Double-check SKU matching")
