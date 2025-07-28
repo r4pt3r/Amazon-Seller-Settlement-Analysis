@@ -331,7 +331,15 @@ def configure_labels_page():
         # Configuration summary
         if selected_vars:
             st.subheader("Current Configuration")
-            st.write(f"**📏 Size:** {width} × {height} pixels")
+            
+            # Show dimensions with unit
+            dimensions = st.session_state.label_config['label_dimensions']
+            width_val = dimensions['width']
+            height_val = dimensions['height']
+            unit = dimensions.get('unit', 'pixels')
+            unit_symbol = 'px' if unit == 'pixels' else 'mm'
+            
+            st.write(f"**📏 Size:** {width_val} × {height_val} {unit_symbol}")
             st.write(f"**📋 Variables:** {len(selected_vars)}")
             
             # Show variables in order
@@ -546,7 +554,7 @@ def render_barcode_config(selected_vars):
             **📊 Supports:**
             - Numbers: 0-9
             - Letters: A-Z, a-z  
-            - Symbols: !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
+            - Symbols: Special characters and punctuation
             - Control characters
             
             **🏭 Perfect for:**
@@ -814,6 +822,15 @@ def preview_design_page():
             else:
                 st.write(f"  {i+1}. {var} ({font_size}px, {style})")
         
+        # Show dimensions with unit
+        dimensions = config['label_dimensions']
+        width_val = dimensions['width']
+        height_val = dimensions['height']
+        unit = dimensions.get('unit', 'pixels')
+        unit_symbol = 'px' if unit == 'pixels' else 'mm'
+        
+        st.write(f"**📏 Dimensions:** {width_val} × {height_val} {unit_symbol}")
+        
         # Show logo info
         logo_settings = config.get('logo_settings', {})
         if logo_settings.get('enabled', False) and logo_settings.get('image_data'):
@@ -1047,13 +1064,22 @@ def generate_png_labels(df):
 def create_label_from_data(row_data):
     """Create high-quality label image from row data"""
     config = st.session_state.label_config
-    width = config['label_dimensions']['width']
-    height = config['label_dimensions']['height']
+    
+    # Get dimensions and convert to pixels if needed
+    dimensions = config['label_dimensions']
+    width = dimensions['width']
+    height = dimensions['height']
+    unit = dimensions.get('unit', 'pixels')
+    
+    # Convert mm to pixels if needed (300 DPI)
+    if unit == 'millimeters':
+        width = round(width * 300 / 25.4)
+        height = round(height * 300 / 25.4)
     
     # Create even higher resolution image for maximum clarity
     scale_factor = 4  # Increased from 3x to 4x for better clarity
-    high_width = width * scale_factor
-    high_height = height * scale_factor
+    high_width = int(width) * scale_factor
+    high_height = int(height) * scale_factor
     
     # Create high-res image
     img = Image.new('RGB', (high_width, high_height), color='white')
@@ -1217,7 +1243,7 @@ def create_label_from_data(row_data):
         add_logo_to_image(img, high_width, high_height, config, scale_factor)
     
     # Scale down to final size with highest quality resampling
-    final_img = img.resize((width, height), Image.Resampling.LANCZOS)
+    final_img = img.resize((int(width), int(height)), Image.Resampling.LANCZOS)
     
     return final_img
 
